@@ -5,3 +5,10 @@ version = 4
 [[package]]
 name = "zyn"
 version = "0.1.0"
+dependencies = [
+ "zyn-core",
+]
+
+[[package]]
+name = "zyn-core"
+version = "0.1.0"

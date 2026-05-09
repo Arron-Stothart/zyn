@@ -1,0 +1,11 @@
+[package]
+name = "zyn"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+zyn-core = { path = "../zyn-core" }
+
+[lints]
+workspace = true

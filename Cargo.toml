@@ -1,7 +1,19 @@
-[package]
-name = "zyn"
+[workspace]
+members = [
+    "crates/zyn",
+    "crates/zyn-core",
+]
+resolver = "3"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.95"
 
-[dependencies]
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"
