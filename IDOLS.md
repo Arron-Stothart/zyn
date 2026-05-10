@@ -1,6 +1,0 @@
-- [uv](https://github.com/astral-sh/uv): Rust workspace taste, resolver/cache ergonomics, CLI polish.
-- [ruff](https://github.com/astral-sh/ruff): high-performance Rust project structure, diagnostics, test discipline.
-- [oxc](https://github.com/oxc-project/oxc): excellent Rust crate boundaries, fast JavaScript tooling patterns, parser/resolver architecture, useful north star for writing Rust that serves JS ecosystem.
-- [Bun](https://github.com/oven-sh/bun): install performance ambition, package-manager UX, global cache strategy, lifecycle script policy.
-- [pnpm](https://github.com/pnpm/pnpm): content-addressable storage, virtual store layout, dependency graph pragmatism, workspace behavior, peer dependency identity lessons, CLI standards.
-- [Cargo](https://github.com/rust-lang/cargo): lockfile/source identity, vendoring philosophy, resolver maturity, workspace conventions.
