@@ -39,9 +39,9 @@ mod tests {
 
     #[test]
     fn accepts_scoped_names() {
-        let name = PackageName::new("@scope/pkg");
+        let name = PackageName::new("@zyn/two-dot");
 
-        assert!(matches!(name, Ok(name) if name.as_str() == "@scope/pkg"));
+        assert!(matches!(name, Ok(name) if name.as_str() == "@zyn/two-dot"));
     }
 
     #[test]
