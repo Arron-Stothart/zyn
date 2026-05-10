@@ -2,6 +2,7 @@
 members = [
     "crates/zyn",
     "crates/zyn-core",
+    "crates/zyn-manifest",
 ]
 resolver = "3"
 
@@ -19,3 +20,9 @@ dbg_macro = "warn"
 todo = "warn"
 unimplemented = "warn"
 unwrap_used = "warn"
+
+[workspace.dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+thiserror = "2.0.17"
+zyn-core = { path = "crates/zyn-core" }

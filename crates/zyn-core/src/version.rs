@@ -36,6 +36,17 @@ pub enum PackageVersionError {
     Whitespace,
 }
 
+impl fmt::Display for PackageVersionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => f.write_str("package version cannot be empty"),
+            Self::Whitespace => f.write_str("package version cannot contain whitespace"),
+        }
+    }
+}
+
+impl std::error::Error for PackageVersionError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

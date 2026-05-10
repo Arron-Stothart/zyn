@@ -13,6 +13,19 @@ impl PackageName {
         if value.chars().any(char::is_whitespace) {
             return Err(PackageNameError::Whitespace);
         }
+        if value.starts_with('@') {
+            let Some((scope, name)) = value.split_once('/') else {
+                return Err(PackageNameError::InvalidScopedName);
+            };
+            if scope.len() == 1 || name.is_empty() || name.contains('/') {
+                return Err(PackageNameError::InvalidScopedName);
+            }
+        } else if value.contains('/') {
+            return Err(PackageNameError::Slash);
+        }
+        if value == "." || value == ".." {
+            return Err(PackageNameError::Reserved);
+        }
         Ok(Self(value))
     }
 
@@ -31,7 +44,24 @@ impl fmt::Display for PackageName {
 pub enum PackageNameError {
     Empty,
     Whitespace,
+    InvalidScopedName,
+    Slash,
+    Reserved,
 }
+
+impl fmt::Display for PackageNameError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => f.write_str("package name cannot be empty"),
+            Self::Whitespace => f.write_str("package name cannot contain whitespace"),
+            Self::InvalidScopedName => f.write_str("scoped package name must be `@scope/name`"),
+            Self::Slash => f.write_str("unscoped package name cannot contain `/`"),
+            Self::Reserved => f.write_str("package name cannot be `.` or `..`"),
+        }
+    }
+}
+
+impl std::error::Error for PackageNameError {}
 
 #[cfg(test)]
 mod tests {
@@ -55,5 +85,26 @@ mod tests {
             PackageName::new("not a package"),
             Err(PackageNameError::Whitespace)
         );
+    }
+
+    #[test]
+    fn rejects_invalid_scoped_names() {
+        assert_eq!(
+            PackageName::new("@scope"),
+            Err(PackageNameError::InvalidScopedName)
+        );
+        assert_eq!(
+            PackageName::new("@scope/"),
+            Err(PackageNameError::InvalidScopedName)
+        );
+        assert_eq!(
+            PackageName::new("@scope/pkg/extra"),
+            Err(PackageNameError::InvalidScopedName)
+        );
+    }
+
+    #[test]
+    fn rejects_slashes_in_unscoped_names() {
+        assert_eq!(PackageName::new("foo/bar"), Err(PackageNameError::Slash));
     }
 }

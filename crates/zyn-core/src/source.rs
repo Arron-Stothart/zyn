@@ -120,6 +120,16 @@ pub enum SourceTextError {
     Empty,
 }
 
+impl fmt::Display for SourceTextError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => f.write_str("source text cannot be empty"),
+        }
+    }
+}
+
+impl std::error::Error for SourceTextError {}
+
 fn non_empty(value: impl Into<String>) -> Result<String, SourceTextError> {
     let value = value.into();
     if value.is_empty() {

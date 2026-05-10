@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn rejects_edges_with_missing_packages() {
-        let from = package_node("app", "1.0.0");
+        let from = package_node("web-app", "1.0.0");
         let to = package_node("left-pad", "1.3.0");
         let edge = DependencyEdge {
             from: from.clone(),
@@ -108,6 +108,7 @@ mod tests {
             alias: package_name("left-pad"),
             kind: DependencyKind::Production,
             requested: DependencySpec::RegistryRange {
+                target: package_name("left-pad"),
                 range: version_range("^1.3.0"),
             },
         };

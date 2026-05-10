@@ -29,8 +29,14 @@ impl DependencyRequest {
 /// A dependency target before zyn resolves it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DependencySpec {
-    RegistryRange { range: VersionRange },
-    DistTag { tag: DistTag },
+    RegistryRange {
+        target: PackageName,
+        range: VersionRange,
+    },
+    DistTag {
+        target: PackageName,
+        tag: DistTag,
+    },
     Git(GitSpec),
     Path(PathSpec),
     Tarball(TarballSpec),
@@ -125,6 +131,8 @@ impl fmt::Display for NonEmptyStringError {
     }
 }
 
+impl std::error::Error for NonEmptyStringError {}
+
 fn non_empty(value: impl Into<String>) -> Result<String, NonEmptyStringError> {
     let value = value.into();
     if value.is_empty() {
@@ -150,14 +158,17 @@ mod tests {
         };
 
         let request = DependencyRequest::new(
-            alias,
-            DependencySpec::RegistryRange { range },
+            alias.clone(),
+            DependencySpec::RegistryRange {
+                target: alias,
+                range,
+            },
             DependencyKind::Production,
         );
 
         assert!(matches!(
             request.spec,
-            DependencySpec::RegistryRange { ref range } if range.as_str() == "^19.0.0"
+            DependencySpec::RegistryRange { ref range, .. } if range.as_str() == "^19.0.0"
         ));
     }
 }
