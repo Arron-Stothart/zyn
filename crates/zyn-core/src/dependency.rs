@@ -12,7 +12,7 @@ pub enum DependencyKind {
     Peer,
 }
 
-/// A dependency as requested by a manifest, before resolution chooses concrete bytes.
+/// A dependency as requested by a manifest, before resolution picks a package source.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DependencyRequest {
     pub alias: PackageName,

@@ -3,6 +3,7 @@ mod graph;
 mod lockfile;
 mod name;
 mod package;
+mod patch;
 mod source;
 mod version;
 
@@ -15,10 +16,15 @@ pub use graph::{
 };
 pub use lockfile::{LOCKFILE_REVISION, LOCKFILE_VERSION, Lockfile, LockfileError};
 pub use name::{PackageName, PackageNameError};
-pub use package::{PackageId, PackageIdError};
+pub use package::{PackageRevisionId, PackageSourceId, PackageSourceIdError, ResolvedPackageId};
+pub use patch::{
+    EdgePatchSelector, PatchId, PatchSelection, PatchSelectionError, PatchSelector, PatchStack,
+    PatchStackError, PatchTarget,
+};
 pub use source::{
-    ContentHash, GitCommit, GitSource, Integrity, NpmSource, PathSource, ResolvedSource,
-    SourceTextError, SourceUrl, TarballSource, VendoredSource, WorkspaceSource,
+    GitCommit, GitSource, Integrity, NpmSource, PackageContentHash, PackageSource,
+    PatchContentHash, PathSource, SourceTextError, SourceUrl, TarballSource, VendoredSource,
+    WorkspaceSource,
 };
 pub use version::{PackageVersion, PackageVersionError};
 

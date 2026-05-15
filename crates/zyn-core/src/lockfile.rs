@@ -85,8 +85,9 @@ impl std::error::Error for LockfileError {}
 mod tests {
     use super::*;
     use crate::{
-        DependencyKind, DependencySpec, Integrity, NpmSource, PackageId, PackageName,
-        PackageVersion, ResolvedSource, SourceUrl, VersionRange,
+        DependencyKind, DependencySpec, Integrity, NpmSource, PackageContentHash, PackageName,
+        PackageRevisionId, PackageSource, PackageSourceId, PackageVersion, ResolvedPackageId,
+        SourceUrl, VersionRange,
     };
 
     #[test]
@@ -94,7 +95,7 @@ mod tests {
         let lockfile = Lockfile::default();
 
         assert_eq!(lockfile.version, 1);
-        assert_eq!(lockfile.revision, 0);
+        assert_eq!(lockfile.revision, LOCKFILE_REVISION);
         assert!(lockfile.is_empty());
     }
 
@@ -119,16 +120,33 @@ mod tests {
     }
 
     fn package_node(name: &str, version: &str) -> PackageNodeId {
-        let package = match PackageId::new(
+        PackageNodeId::new(resolved_package(name, version))
+    }
+
+    fn resolved_package(name: &str, version: &str) -> ResolvedPackageId {
+        ResolvedPackageId::new(
+            package_revision(name, version),
+            package_artifact_hash(name, version),
+        )
+    }
+
+    fn package_revision(name: &str, version: &str) -> PackageRevisionId {
+        PackageRevisionId::unpatched(package_source(name, version))
+    }
+
+    fn package_artifact_hash(name: &str, version: &str) -> PackageContentHash {
+        package_content_hash(format!("sha256-{name}-{version}"))
+    }
+
+    fn package_source(name: &str, version: &str) -> PackageSourceId {
+        match PackageSourceId::new(
             package_name(name),
             Some(package_version(version)),
             npm_source(name, version),
         ) {
-            Ok(package) => package,
-            Err(error) => panic!("unexpected package id error: {error:?}"),
-        };
-
-        PackageNodeId::new(package)
+            Ok(source) => source,
+            Err(error) => panic!("unexpected package source id error: {error:?}"),
+        }
     }
 
     fn package_name(value: &str) -> PackageName {
@@ -152,8 +170,8 @@ mod tests {
         }
     }
 
-    fn npm_source(name: &str, version: &str) -> ResolvedSource {
-        ResolvedSource::Npm(NpmSource {
+    fn npm_source(name: &str, version: &str) -> PackageSource {
+        PackageSource::Npm(NpmSource {
             registry: source_url("https://registry.npmjs.org"),
             tarball: source_url(format!(
                 "https://registry.npmjs.org/{name}/-/{name}-{version}.tgz"
@@ -173,6 +191,13 @@ mod tests {
         match Integrity::new(value) {
             Ok(integrity) => integrity,
             Err(error) => panic!("unexpected integrity error: {error:?}"),
+        }
+    }
+
+    fn package_content_hash(value: impl Into<String>) -> PackageContentHash {
+        match PackageContentHash::new(value) {
+            Ok(hash) => hash,
+            Err(error) => panic!("unexpected content hash error: {error:?}"),
         }
     }
 }

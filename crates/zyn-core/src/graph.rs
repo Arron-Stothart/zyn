@@ -1,25 +1,37 @@
 use std::collections::BTreeMap;
 
-use crate::{DependencyKind, DependencySpec, PackageId, PackageName};
+use crate::{DependencyKind, DependencySpec, PackageName, ResolvedPackageId};
 
 /// A resolved package as it appears in the dependency graph.
 ///
 /// Node identity includes peer and platform context because Node package instances can differ
-/// even when they share the same package name, version, and source.
+/// even when they share the same resolved package.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PackageNodeId {
-    pub package: PackageId,
-    pub peer_context: PeerContext,
-    pub platform_context: PlatformContext,
+    package: ResolvedPackageId,
+    peer_context: PeerContext,
+    platform_context: PlatformContext,
 }
 
 impl PackageNodeId {
-    pub fn new(package: PackageId) -> Self {
+    pub fn new(package: ResolvedPackageId) -> Self {
         Self {
             package,
             peer_context: PeerContext::default(),
             platform_context: PlatformContext::default(),
         }
+    }
+
+    pub fn package(&self) -> &ResolvedPackageId {
+        &self.package
+    }
+
+    pub fn peer_context(&self) -> &PeerContext {
+        &self.peer_context
+    }
+
+    pub fn platform_context(&self) -> &PlatformContext {
+        &self.platform_context
     }
 
     pub fn with_peer_context(mut self, peer_context: PeerContext) -> Self {
@@ -35,7 +47,7 @@ impl PackageNodeId {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct PeerContext {
-    peers: BTreeMap<PackageName, PackageId>,
+    peers: BTreeMap<PackageName, ResolvedPackageId>,
 }
 
 impl PeerContext {
@@ -54,15 +66,29 @@ impl PeerContext {
         Self::default()
     }
 
-    pub fn peers(&self) -> impl Iterator<Item = (&PackageName, &PackageId)> {
+    pub fn peers(&self) -> impl Iterator<Item = (&PackageName, &ResolvedPackageId)> {
         self.peers.iter()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PeerResolution {
-    pub name: PackageName,
-    pub package: PackageId,
+    name: PackageName,
+    package: ResolvedPackageId,
+}
+
+impl PeerResolution {
+    pub fn new(name: PackageName, package: ResolvedPackageId) -> Self {
+        Self { name, package }
+    }
+
+    pub fn name(&self) -> &PackageName {
+        &self.name
+    }
+
+    pub fn package(&self) -> &ResolvedPackageId {
+        &self.package
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -100,18 +126,21 @@ pub struct DependencyEdge {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Integrity, NpmSource, PackageVersion, ResolvedSource, SourceUrl};
+    use crate::{
+        Integrity, NpmSource, PackageContentHash, PackageRevisionId, PackageSource,
+        PackageSourceId, PackageVersion, PatchContentHash, PatchId, PatchStack, SourceUrl,
+    };
 
     #[test]
     fn peer_context_is_part_of_node_identity() {
-        let foo_with_react_18 = foo_node().with_peer_context(peer_context(vec![PeerResolution {
-            name: package_name("react"),
-            package: react_package("18.3.1"),
-        }]));
-        let foo_with_react_19 = foo_node().with_peer_context(peer_context(vec![PeerResolution {
-            name: package_name("react"),
-            package: react_package("19.0.0"),
-        }]));
+        let foo_with_react_18 = foo_node().with_peer_context(peer_context(vec![peer_resolution(
+            "react",
+            react_package("18.3.1"),
+        )]));
+        let foo_with_react_19 = foo_node().with_peer_context(peer_context(vec![peer_resolution(
+            "react",
+            react_package("19.0.0"),
+        )]));
 
         assert_ne!(foo_with_react_18, foo_with_react_19);
     }
@@ -119,24 +148,12 @@ mod tests {
     #[test]
     fn peer_context_identity_is_order_insensitive() {
         let left = peer_context(vec![
-            PeerResolution {
-                name: package_name("react"),
-                package: react_package("18.3.1"),
-            },
-            PeerResolution {
-                name: package_name("scheduler"),
-                package: scheduler_package(),
-            },
+            peer_resolution("react", react_package("18.3.1")),
+            peer_resolution("scheduler", scheduler_package()),
         ]);
         let right = peer_context(vec![
-            PeerResolution {
-                name: package_name("scheduler"),
-                package: scheduler_package(),
-            },
-            PeerResolution {
-                name: package_name("react"),
-                package: react_package("18.3.1"),
-            },
+            peer_resolution("scheduler", scheduler_package()),
+            peer_resolution("react", react_package("18.3.1")),
         ]);
 
         assert_eq!(left, right);
@@ -145,51 +162,87 @@ mod tests {
     #[test]
     fn peer_context_rejects_duplicate_names() {
         let context = PeerContext::new(vec![
-            PeerResolution {
-                name: package_name("react"),
-                package: react_package("18.3.1"),
-            },
-            PeerResolution {
-                name: package_name("react"),
-                package: react_package("19.0.0"),
-            },
+            peer_resolution("react", react_package("18.3.1")),
+            peer_resolution("react", react_package("19.0.0")),
         ]);
 
         assert!(matches!(context, Err(PeerContextError::DuplicatePeer(_))));
     }
 
+    #[test]
+    fn peer_context_distinguishes_patched_providers() {
+        let unpatched = foo_node().with_peer_context(peer_context(vec![peer_resolution(
+            "react",
+            react_package("19.0.0"),
+        )]));
+        let patched = foo_node().with_peer_context(peer_context(vec![peer_resolution(
+            "react",
+            patched_react_package("19.0.0"),
+        )]));
+
+        assert_ne!(unpatched, patched);
+    }
+
     fn foo_node() -> PackageNodeId {
-        PackageNodeId::new(package_id(
-            package_name("foo"),
-            Some(package_version("1.0.0")),
-            npm_source("foo", "1.0.0"),
-        ))
+        package_node("foo", "1.0.0")
     }
 
-    fn react_package(version: &str) -> PackageId {
-        package_id(
-            package_name("react"),
+    fn react_package(version: &str) -> ResolvedPackageId {
+        resolved_package("react", version)
+    }
+
+    fn patched_react_package(version: &str) -> ResolvedPackageId {
+        ResolvedPackageId::new(
+            PackageRevisionId::new(
+                package_source("react", version),
+                patch_stack(vec![patch_id("sha256-react-patch")]),
+            ),
+            package_content_hash("sha256-react-patched"),
+        )
+    }
+
+    fn scheduler_package() -> ResolvedPackageId {
+        resolved_package("scheduler", "0.25.0")
+    }
+
+    fn package_node(name: &str, version: &str) -> PackageNodeId {
+        PackageNodeId::new(resolved_package(name, version))
+    }
+
+    fn resolved_package(name: &str, version: &str) -> ResolvedPackageId {
+        ResolvedPackageId::new(
+            package_revision(name, version),
+            package_artifact_hash(name, version),
+        )
+    }
+
+    fn package_artifact_hash(name: &str, version: &str) -> PackageContentHash {
+        package_content_hash(format!("sha256-{name}-{version}"))
+    }
+
+    fn package_revision(name: &str, version: &str) -> PackageRevisionId {
+        PackageRevisionId::unpatched(package_source(name, version))
+    }
+
+    fn package_source(name: &str, version: &str) -> PackageSourceId {
+        match PackageSourceId::new(
+            package_name(name),
             Some(package_version(version)),
-            npm_source("react", version),
-        )
+            npm_source(name, version),
+        ) {
+            Ok(source) => source,
+            Err(error) => panic!("unexpected package source id error: {error:?}"),
+        }
     }
 
-    fn scheduler_package() -> PackageId {
-        package_id(
-            package_name("scheduler"),
-            Some(package_version("0.25.0")),
-            npm_source("scheduler", "0.25.0"),
-        )
+    fn patch_id(value: &str) -> PatchId {
+        PatchId::new(patch_content_hash(value))
     }
 
-    fn package_id(
-        name: PackageName,
-        version: Option<PackageVersion>,
-        source: ResolvedSource,
-    ) -> PackageId {
-        match PackageId::new(name, version, source) {
-            Ok(package) => package,
-            Err(error) => panic!("unexpected package id error: {error:?}"),
+    fn patch_stack(patches: Vec<PatchId>) -> PatchStack {
+        match PatchStack::new(patches) {
+            Ok(stack) => stack,
+            Err(error) => panic!("unexpected patch stack error: {error:?}"),
         }
     }
 
@@ -200,8 +253,12 @@ mod tests {
         }
     }
 
-    fn npm_source(name: &str, version: &str) -> ResolvedSource {
-        ResolvedSource::Npm(NpmSource {
+    fn peer_resolution(name: &str, package: ResolvedPackageId) -> PeerResolution {
+        PeerResolution::new(package_name(name), package)
+    }
+
+    fn npm_source(name: &str, version: &str) -> PackageSource {
+        PackageSource::Npm(NpmSource {
             registry: source_url("https://registry.npmjs.org"),
             tarball: source_url(format!(
                 "https://registry.npmjs.org/{name}/-/{name}-{version}.tgz"
@@ -235,6 +292,20 @@ mod tests {
         match Integrity::new(value) {
             Ok(integrity) => integrity,
             Err(error) => panic!("unexpected integrity error: {error:?}"),
+        }
+    }
+
+    fn package_content_hash(value: impl Into<String>) -> PackageContentHash {
+        match PackageContentHash::new(value) {
+            Ok(hash) => hash,
+            Err(error) => panic!("unexpected package content hash error: {error:?}"),
+        }
+    }
+
+    fn patch_content_hash(value: impl Into<String>) -> PatchContentHash {
+        match PatchContentHash::new(value) {
+            Ok(hash) => hash,
+            Err(error) => panic!("unexpected patch content hash error: {error:?}"),
         }
     }
 }

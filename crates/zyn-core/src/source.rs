@@ -1,11 +1,12 @@
+use std::borrow::Borrow;
 use std::fmt;
 use std::path::PathBuf;
 
 use crate::{GitReference, Subdirectory};
 
-/// The resolved source zyn uses for a package.
+/// The resolved source for a package before applying zyn-managed patches.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ResolvedSource {
+pub enum PackageSource {
     Npm(NpmSource),
     Git(GitSource),
     Path(PathSource),
@@ -14,7 +15,7 @@ pub enum ResolvedSource {
     Vendored(VendoredSource),
 }
 
-impl ResolvedSource {
+impl PackageSource {
     pub fn is_local(&self) -> bool {
         matches!(self, Self::Path(_) | Self::Workspace(_) | Self::Vendored(_))
     }
@@ -54,7 +55,7 @@ pub struct WorkspaceSource {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct VendoredSource {
     pub path: PathBuf,
-    pub content_hash: ContentHash,
+    pub content_hash: PackageContentHash,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -90,7 +91,7 @@ impl Integrity {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ContentHash(String);
+pub(crate) struct ContentHash(String);
 
 impl ContentHash {
     pub fn new(value: impl Into<String>) -> Result<Self, SourceTextError> {
@@ -99,6 +100,68 @@ impl ContentHash {
 
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PackageContentHash(ContentHash);
+
+impl PackageContentHash {
+    pub fn new(value: impl Into<String>) -> Result<Self, SourceTextError> {
+        ContentHash::new(value).map(Self)
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl fmt::Display for PackageContentHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl AsRef<str> for PackageContentHash {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Borrow<str> for PackageContentHash {
+    fn borrow(&self) -> &str {
+        self.as_str()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PatchContentHash(ContentHash);
+
+impl PatchContentHash {
+    pub fn new(value: impl Into<String>) -> Result<Self, SourceTextError> {
+        ContentHash::new(value).map(Self)
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl fmt::Display for PatchContentHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl AsRef<str> for PatchContentHash {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Borrow<str> for PatchContentHash {
+    fn borrow(&self) -> &str {
+        self.as_str()
     }
 }
 
@@ -142,18 +205,18 @@ fn non_empty(value: impl Into<String>) -> Result<String, SourceTextError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{PackageId, PackageName};
+    use crate::{PackageName, PackageSourceId};
 
     #[test]
     fn distinguishes_editable_sources_from_registry_sources() {
-        let registry = ResolvedSource::Npm(NpmSource {
+        let registry = PackageSource::Npm(NpmSource {
             registry: source_url("https://registry.npmjs.org"),
             tarball: source_url("https://registry.npmjs.org/is-even/-/is-even-1.0.0.tgz"),
             integrity: integrity("sha512-example"),
         });
-        let vendored = ResolvedSource::Vendored(VendoredSource {
+        let vendored = PackageSource::Vendored(VendoredSource {
             path: ".zyn/deps/is-even@1.0.0".into(),
-            content_hash: content_hash("sha256-example"),
+            content_hash: package_content_hash("sha256-example"),
         });
 
         assert!(!registry.is_local());
@@ -161,16 +224,16 @@ mod tests {
     }
 
     #[test]
-    fn package_id_can_use_non_npm_sources() {
+    fn package_source_can_use_non_npm_sources() {
         let name = match PackageName::new("toolkit") {
             Ok(name) => name,
             Err(error) => panic!("unexpected package name error: {error:?}"),
         };
 
-        let package = package_id(
+        let package = package_source(
             name,
             None,
-            ResolvedSource::Path(PathSource {
+            PackageSource::Path(PathSource {
                 path: "../toolkit".into(),
             }),
         );
@@ -179,14 +242,14 @@ mod tests {
         assert!(package.source().is_local());
     }
 
-    fn package_id(
+    fn package_source(
         name: PackageName,
         version: Option<crate::PackageVersion>,
-        source: ResolvedSource,
-    ) -> PackageId {
-        match PackageId::new(name, version, source) {
+        source: PackageSource,
+    ) -> PackageSourceId {
+        match PackageSourceId::new(name, version, source) {
             Ok(package) => package,
-            Err(error) => panic!("unexpected package id error: {error:?}"),
+            Err(error) => panic!("unexpected package source id error: {error:?}"),
         }
     }
 
@@ -204,8 +267,8 @@ mod tests {
         }
     }
 
-    fn content_hash(value: &str) -> ContentHash {
-        match ContentHash::new(value) {
+    fn package_content_hash(value: &str) -> PackageContentHash {
+        match PackageContentHash::new(value) {
             Ok(hash) => hash,
             Err(error) => panic!("unexpected content hash error: {error:?}"),
         }
