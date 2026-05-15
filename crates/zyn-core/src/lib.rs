@@ -18,8 +18,10 @@ pub use lockfile::{LOCKFILE_REVISION, LOCKFILE_VERSION, Lockfile, LockfileError}
 pub use name::{PackageName, PackageNameError};
 pub use package::{PackageRevisionId, PackageSourceId, PackageSourceIdError, ResolvedPackageId};
 pub use patch::{
-    EdgePatchSelector, PatchId, PatchSelection, PatchSelectionError, PatchSelector, PatchStack,
-    PatchStackError, PatchTarget,
+    EdgePatchSelector, ManifestPatchEffect, PATCHES_DIR, PatchCatalog, PatchCatalogError,
+    PatchDefinition, PatchEffects, PatchEffectsError, PatchId, PatchPath, PatchPathError,
+    PatchSelection, PatchSelectionError, PatchSelector, PatchStack, PatchStackError, PatchTarget,
+    SourcePatchEffect,
 };
 pub use source::{
     GitCommit, GitSource, Integrity, NpmSource, PackageContentHash, PackageSource,
