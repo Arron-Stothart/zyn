@@ -82,9 +82,6 @@ impl PackageRevisionId {
 }
 
 /// A package revision paired with the artifact hash zyn recorded for it.
-///
-/// Constructing this value does not verify the hash. It records the resolver's claim that the
-/// artifact was produced from the revision.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ResolvedPackageId {
     revision: PackageRevisionId,

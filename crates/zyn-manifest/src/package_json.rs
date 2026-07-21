@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PackageJsonWire {
+pub struct PackageJson {
     pub name: Option<String>,
     pub version: Option<String>,
     #[serde(default)]
@@ -17,7 +17,7 @@ pub struct PackageJsonWire {
     pub peer_dependencies: BTreeMap<String, String>,
 }
 
-impl PackageJsonWire {
+impl PackageJson {
     pub fn from_str(source: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(source)
     }

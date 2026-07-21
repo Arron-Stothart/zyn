@@ -12,7 +12,7 @@ pub enum DependencyKind {
     Peer,
 }
 
-/// A dependency as requested by a manifest, before resolution picks a package source.
+/// A dependency read from a package manifest.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DependencyRequest {
     pub alias: PackageName,
@@ -26,7 +26,7 @@ impl DependencyRequest {
     }
 }
 
-/// A dependency target before zyn resolves it.
+/// A dependency value from a package manifest.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DependencySpec {
     RegistryRange {

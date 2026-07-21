@@ -1,4 +1,4 @@
-//! Read package manifests into zyn's core dependency model.
+//! Parse package.json files into zyn's dependency model.
 
 mod error;
 mod manifest;
@@ -6,4 +6,4 @@ mod package_json;
 mod spec;
 
 pub use error::ManifestError;
-pub use manifest::{DependencySection, ManifestDependency, PackageManifest};
+pub use manifest::PackageManifest;

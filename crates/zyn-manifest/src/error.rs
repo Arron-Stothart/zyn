@@ -1,7 +1,5 @@
 use zyn_core::{NonEmptyStringError, PackageNameError, PackageVersionError, SourceTextError};
 
-use crate::manifest::DependencySection;
-
 #[derive(Debug, thiserror::Error)]
 pub enum ManifestError {
     #[error("failed to parse package.json: {0}")]
@@ -18,34 +16,34 @@ pub enum ManifestError {
     },
     #[error("invalid dependency `{alias}` in {section}")]
     DependencyName {
-        section: DependencySection,
+        section: &'static str,
         alias: String,
         source: PackageNameError,
     },
     #[error("invalid dependency target `{target}` for dependency `{alias}` in {section}")]
     DependencyTargetName {
-        section: DependencySection,
+        section: &'static str,
         alias: String,
         target: String,
         source: PackageNameError,
     },
     #[error("invalid dependency spec `{spec}` for dependency `{alias}` in {section}")]
     DependencySpec {
-        section: DependencySection,
+        section: &'static str,
         alias: String,
         spec: String,
         source: NonEmptyStringError,
     },
     #[error("invalid dependency source `{spec}` for dependency `{alias}` in {section}")]
     DependencySource {
-        section: DependencySection,
+        section: &'static str,
         alias: String,
         spec: String,
         source: SourceTextError,
     },
     #[error("unsupported dependency spec `{spec}` for dependency `{alias}` in {section}")]
     UnsupportedDependencySpec {
-        section: DependencySection,
+        section: &'static str,
         alias: String,
         spec: String,
     },

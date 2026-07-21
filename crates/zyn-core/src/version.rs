@@ -1,9 +1,6 @@
 use std::fmt;
 
-/// A resolved package version.
-///
-/// This intentionally stores the original package-manager version string. npm-compatible
-/// parsing belongs in the npm-facing crate, while the core model only needs a stable value.
+/// An exact package version.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PackageVersion(String);
 

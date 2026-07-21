@@ -30,7 +30,7 @@ pub fn parse_dependency_spec(
     if let Some(path) = spec.strip_prefix("file:") {
         if path.trim().is_empty() {
             return Err(ManifestError::UnsupportedDependencySpec {
-                section,
+                section: section.as_str(),
                 alias: alias.as_str().to_string(),
                 spec: raw_spec.to_string(),
             });
@@ -48,7 +48,7 @@ pub fn parse_dependency_spec(
     if is_remote_tarball(spec) {
         return Ok(DependencySpec::Tarball(TarballSpec {
             url: SourceUrl::new(spec).map_err(|source| ManifestError::DependencySource {
-                section,
+                section: section.as_str(),
                 alias: alias.as_str().to_string(),
                 spec: raw_spec.to_string(),
                 source,
@@ -59,7 +59,7 @@ pub fn parse_dependency_spec(
 
     if looks_like_git_spec(spec) {
         return Err(ManifestError::UnsupportedDependencySpec {
-            section,
+            section: section.as_str(),
             alias: alias.as_str().to_string(),
             spec: raw_spec.to_string(),
         });
@@ -67,7 +67,7 @@ pub fn parse_dependency_spec(
 
     if looks_like_unsupported_spec(spec) {
         return Err(ManifestError::UnsupportedDependencySpec {
-            section,
+            section: section.as_str(),
             alias: alias.as_str().to_string(),
             spec: raw_spec.to_string(),
         });
@@ -110,7 +110,7 @@ fn parse_registry_spec(
     let (target, requirement) = split_target_and_requirement(alias, registry_spec, mode);
     let target = PackageName::new(target.to_string()).map_err(|source| {
         ManifestError::DependencyTargetName {
-            section,
+            section: section.as_str(),
             alias: alias.as_str().to_string(),
             target: target.to_string(),
             source,
@@ -201,7 +201,7 @@ fn invalid_spec(
     source: zyn_core::NonEmptyStringError,
 ) -> ManifestError {
     ManifestError::DependencySpec {
-        section,
+        section: section.as_str(),
         alias: alias.as_str().to_string(),
         spec: spec.to_string(),
         source,

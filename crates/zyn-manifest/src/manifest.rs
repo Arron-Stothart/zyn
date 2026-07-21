@@ -1,27 +1,20 @@
-use std::fmt;
-
 use zyn_core::{DependencyKind, DependencyRequest, PackageName, PackageVersion};
 
 use crate::error::ManifestError;
-use crate::package_json::PackageJsonWire;
+use crate::package_json::PackageJson;
 use crate::spec::parse_dependency_spec;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackageManifest {
-    raw: String,
     name: Option<PackageName>,
     version: Option<PackageVersion>,
-    dependencies: Vec<ManifestDependency>,
+    dependencies: Vec<DependencyRequest>,
 }
 
 impl PackageManifest {
     pub fn from_package_json_str(source: &str) -> Result<Self, ManifestError> {
-        let package_json = PackageJsonWire::from_str(source)?;
-        Self::from_wire(package_json, source.to_string())
-    }
-
-    pub fn raw(&self) -> &str {
-        &self.raw
+        let package_json = PackageJson::from_str(source)?;
+        Self::from_package_json(package_json)
     }
 
     pub fn name(&self) -> Option<&PackageName> {
@@ -32,11 +25,11 @@ impl PackageManifest {
         self.version.as_ref()
     }
 
-    pub fn dependencies(&self) -> &[ManifestDependency] {
+    pub fn dependencies(&self) -> &[DependencyRequest] {
         &self.dependencies
     }
 
-    fn from_wire(package_json: PackageJsonWire, raw: String) -> Result<Self, ManifestError> {
+    fn from_package_json(package_json: PackageJson) -> Result<Self, ManifestError> {
         let name = package_json
             .name
             .map(|value| {
@@ -75,7 +68,6 @@ impl PackageManifest {
         )?;
 
         Ok(Self {
-            raw,
             name,
             version,
             dependencies,
@@ -83,8 +75,8 @@ impl PackageManifest {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum DependencySection {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DependencySection {
     Dependencies,
     DevDependencies,
     OptionalDependencies,
@@ -92,7 +84,7 @@ pub enum DependencySection {
 }
 
 impl DependencySection {
-    pub fn kind(self) -> DependencyKind {
+    fn kind(self) -> DependencyKind {
         match self {
             Self::Dependencies => DependencyKind::Production,
             Self::DevDependencies => DependencyKind::Development,
@@ -100,68 +92,39 @@ impl DependencySection {
             Self::PeerDependencies => DependencyKind::Peer,
         }
     }
-}
 
-impl fmt::Display for DependencySection {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
-            Self::Dependencies => f.write_str("dependencies"),
-            Self::DevDependencies => f.write_str("devDependencies"),
-            Self::OptionalDependencies => f.write_str("optionalDependencies"),
-            Self::PeerDependencies => f.write_str("peerDependencies"),
+            Self::Dependencies => "dependencies",
+            Self::DevDependencies => "devDependencies",
+            Self::OptionalDependencies => "optionalDependencies",
+            Self::PeerDependencies => "peerDependencies",
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ManifestDependency {
-    section: DependencySection,
-    raw_spec: String,
-    request: DependencyRequest,
-}
-
-impl ManifestDependency {
-    pub fn section(&self) -> DependencySection {
-        self.section
-    }
-
-    pub fn raw_spec(&self) -> &str {
-        &self.raw_spec
-    }
-
-    pub fn request(&self) -> &DependencyRequest {
-        &self.request
-    }
-}
-
 fn add_dependency_section(
-    dependencies: &mut Vec<ManifestDependency>,
+    dependencies: &mut Vec<DependencyRequest>,
     section_dependencies: impl IntoIterator<Item = (String, String)>,
     section: DependencySection,
 ) -> Result<(), ManifestError> {
     for (alias, raw_spec) in section_dependencies {
         let package_name =
             PackageName::new(alias.clone()).map_err(|source| ManifestError::DependencyName {
-                section,
+                section: section.as_str(),
                 alias: alias.clone(),
                 source,
             })?;
         let spec = parse_dependency_spec(section, &package_name, &raw_spec)?;
         let request = DependencyRequest::new(package_name.clone(), spec, section.kind());
-        let dependency = ManifestDependency {
-            section,
-            raw_spec,
-            request,
-        };
 
         if section == DependencySection::OptionalDependencies {
             dependencies.retain(|existing| {
-                existing.request.alias != package_name
-                    || existing.section != DependencySection::Dependencies
+                existing.alias != package_name || existing.kind != DependencyKind::Production
             });
         }
 
-        dependencies.push(dependency);
+        dependencies.push(request);
     }
 
     Ok(())
@@ -181,7 +144,6 @@ mod tests {
             }"#,
         );
 
-        assert!(manifest.raw().contains("web-app"));
         assert!(matches!(manifest.name(), Some(name) if name.as_str() == "web-app"));
         assert!(matches!(manifest.version(), Some(version) if version.as_str() == "1.0.0"));
     }
@@ -277,7 +239,7 @@ mod tests {
             manifest
                 .dependencies()
                 .iter()
-                .filter(|dependency| dependency.request().alias.as_str() == "react")
+                .filter(|dependency| dependency.alias.as_str() == "react")
                 .count(),
             2
         );
@@ -291,7 +253,7 @@ mod tests {
     }
 
     fn assert_registry_range(
-        dependencies: &[ManifestDependency],
+        dependencies: &[DependencyRequest],
         alias: &str,
         target: &str,
         range: &str,
@@ -299,14 +261,12 @@ mod tests {
     ) {
         let dependency = dependencies
             .iter()
-            .find(|dependency| dependency.request().alias.as_str() == alias)
+            .find(|dependency| dependency.alias.as_str() == alias)
             .unwrap_or_else(|| panic!("missing dependency `{alias}`"));
 
-        assert_eq!(dependency.section(), section);
-        assert_eq!(dependency.raw_spec(), range);
-        assert_eq!(dependency.request().kind, section.kind());
+        assert_eq!(dependency.kind, section.kind());
         assert!(matches!(
-            dependency.request().spec,
+            dependency.spec,
             DependencySpec::RegistryRange { target: ref actual_target, range: ref actual_range }
                 if actual_target.as_str() == target && actual_range.as_str() == range
         ));
